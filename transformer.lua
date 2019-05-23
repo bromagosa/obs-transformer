@@ -74,7 +74,10 @@ function script_properties()
             obs.OBS_COMBO_TYPE_LIST,
             obs.OBS_COMBO_FORMAT_STRING)
     obs.obs_property_list_add_string(effects, 'Linear', 'linear')
-    obs.obs_property_list_add_string(effects, 'Ease-in-out', 'ease-in-out')
+    obs.obs_property_list_add_string(effects, 'Ease-in-quad', 'ease-in-quad')
+    obs.obs_property_list_add_string(effects, 'Ease-out-quad', 'ease-out-quad')
+    obs.obs_property_list_add_string(effects, 'Ease-in-out-quad', 'ease-in-out-quad')
+    obs.obs_property_list_add_string(effects, 'Ease-out-in-quad', 'ease-out-in-quad')
     obs.obs_property_list_add_string(effects, 'Cut', 'cut')
 
     local p =
@@ -185,40 +188,64 @@ function trigger(pressed)
     end
 end
 
-function get_new_scalar(scalar_name, seconds)
-    local function scalar_at_second(seconds)
-        if effect.easing == 'linear' then
-            return (
-                (destination[scalar_name] - origin[scalar_name]) /
-                    effect.duration) * seconds
-        elseif effect.easing == 'cut' then
-            return 0
+function easing(function_name, time, change, initial_value)
+    if function_name == 'linear' then
+        return change * time / effect.duration + initial_value
+    elseif function_name == 'ease-in-quad' then
+        time = time / effect.duration
+        return change * math.pow(time, 2) + initial_value
+    elseif function_name == 'ease-out-quad' then
+        time = time / effect.duration
+        return - change * time * (time - 2) + initial_value
+    elseif function_name == 'ease-in-out-quad' then
+        time = time / effect.duration * 2
+        if time < 1 then
+            return change / 2 * math.pow(time, 2) + initial_value
+        else
+            return -change / 2 * ((time - 1) * (time - 3) - 1) + initial_value
         end
+    elseif function_name == 'ease-out-in-quad' then
+        if time < effect.duration / 2 then
+            return easing(
+                'ease-out-quad',
+                time * 2,
+                change / 2,
+                initial_value)
+        else
+            return easing(
+                'ease-in-quad',
+                (time * 2) - effect.duration,
+                change / 2,
+                initial_value + change / 2)
+        end
+    elseif function_name == 'cut' then
+        return 0
     end
-
-    return obs['obs_sceneitem_get_' .. scalar_name](sceneItem) +
-                scalar_at_second(seconds)
 end
 
-function get_new_vector(vector_name, seconds)
-    local new_vector = obs.vec2()
-    local function vector_at_second(seconds)
-        local delta = obs.vec2()
-        if effect.easing == 'linear' then
-            obs.vec2_set(
-                delta,
-                ((destination[vector_name].x / effect.duration) * seconds),
-                ((destination[vector_name].y / effect.duration) * seconds))
-        elseif effect.easing == 'cut' then
-            obs.vec2_set(delta, 0, 0)
-        end
-        return delta
-    end
+function get_new_scalar(scalar_name)
+    return easing(
+        effect.easing,
+        effect.elapsed_time,
+        destination[scalar_name] - origin[scalar_name],
+        origin[scalar_name])
+end
 
-    obs['obs_sceneitem_get_' .. vector_name](sceneItem, new_vector)
-    obs.vec2_add(
-    new_vector,
-    new_vector,
-    vector_at_second(seconds))
-    return new_vector
+function get_new_vector(vector_name)
+    local delta = obs.vec2()
+
+    obs.vec2_set(
+        delta,
+        easing(
+            effect.easing,
+            effect.elapsed_time,
+            destination[vector_name].x - origin[vector_name].x,
+            origin[vector_name].x),
+        easing(
+            effect.easing,
+            effect.elapsed_time,
+            destination[vector_name].y - origin[vector_name].y,
+            origin[vector_name].y))
+
+    return delta
 end
