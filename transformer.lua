@@ -154,11 +154,12 @@ function script_tick(seconds)
     if (active) then
         effect.elapsed_time = effect.elapsed_time + seconds
         obs.obs_sceneitem_set_rot(sceneItem, get_new_rotation(seconds))
-        -- obs.obs_sceneitem_set_pos(sceneItem, get_new_position(seconds))
+        obs.obs_sceneitem_set_pos(sceneItem, get_new_position(seconds))
         if (effect.elapsed_time >= effect.duration) then
             active = false
             effect.elapsed_time = 0
             obs.obs_sceneitem_set_rot(sceneItem, destination.rotation)
+            obs.obs_sceneitem_set_pos(sceneItem, destination.position)
         end
     end
 end
@@ -197,9 +198,10 @@ end
 
 function get_new_position(seconds)
     local new_pos = obs.vec2()
+    obs.obs_sceneitem_get_pos(sceneItem, new_pos)
     obs.vec2_add(
         new_pos,
-        obs.obs_sceneitem_get_pos(sceneItem),
+        new_pos,
         position_at_second(seconds))
     return new_pos
 end
