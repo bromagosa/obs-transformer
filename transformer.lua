@@ -41,7 +41,7 @@ function script_properties()
         props, 'origin x', 'Origin x:', -100000, 100000, 1)
     obs.obs_properties_add_int(
         props, 'origin y', 'Origin y:', -100000, 100000, 1)
-    
+
     obs.obs_properties_add_int(
         props, 'destination x', 'Destination x:', -100000, 100000, 1)
     obs.obs_properties_add_int(
@@ -66,7 +66,7 @@ function script_properties()
     obs.obs_properties_add_float(
         props, 'duration', 'Duration (seconds):', 0, 100000, 1)
 
-    local effects = 
+    local effects =
         obs.obs_properties_add_list(
             props,
             'easing',
@@ -103,27 +103,27 @@ end
 function script_update(settings)
     source_name = obs.obs_data_get_string(settings, 'source')
 
-    origin.rotation = obs.obs_data_get_int(settings, 'origin rotation')
-    origin.position = obs.vec2()
+    origin.rot = obs.obs_data_get_int(settings, 'origin rotation')
+    origin.pos = obs.vec2()
     obs.vec2_set(
-        origin.position,
+        origin.pos,
         obs.obs_data_get_int(settings, 'origin x'),
         obs.obs_data_get_int(settings, 'origin y'))
-    origin.dimensions = obs.vec2()
+    origin.bounds = obs.vec2()
     obs.vec2_set(
-        origin.dimensions,
+        origin.bounds,
         obs.obs_data_get_int(settings, 'origin width'),
         obs.obs_data_get_int(settings, 'origin height'))
 
-    destination.position = obs.vec2()
-    destination.rotation = obs.obs_data_get_int(settings, 'destination rotation')
+    destination.pos = obs.vec2()
+    destination.rot = obs.obs_data_get_int(settings, 'destination rotation')
     obs.vec2_set(
-        destination.position,
+        destination.pos,
         obs.obs_data_get_int(settings, 'destination x'),
         obs.obs_data_get_int(settings, 'destination y'))
-    destination.dimensions = obs.vec2()
+    destination.bounds = obs.vec2()
     obs.vec2_set(
-        destination.dimensions,
+        destination.bounds,
         obs.obs_data_get_int(settings, 'destination width'),
         obs.obs_data_get_int(settings, 'destination height'))
 
@@ -153,13 +153,15 @@ end
 function script_tick(seconds)
     if (active) then
         effect.elapsed_time = effect.elapsed_time + seconds
-        obs.obs_sceneitem_set_rot(sceneItem, get_new_rotation(seconds))
-        obs.obs_sceneitem_set_pos(sceneItem, get_new_position(seconds))
+        obs.obs_sceneitem_set_rot(sceneItem, get_new_scalar('rot', seconds))
+        obs.obs_sceneitem_set_pos(sceneItem, get_new_vector('pos', seconds))
+        obs.obs_sceneitem_set_bounds(sceneItem, get_new_vector('bounds', seconds))
         if (effect.elapsed_time >= effect.duration) then
             active = false
             effect.elapsed_time = 0
-            obs.obs_sceneitem_set_rot(sceneItem, destination.rotation)
-            obs.obs_sceneitem_set_pos(sceneItem, destination.position)
+            obs.obs_sceneitem_set_rot(sceneItem, destination.rot)
+            obs.obs_sceneitem_set_pos(sceneItem, destination.pos)
+            obs.obs_sceneitem_set_bounds(sceneItem, destination.bounds)
         end
     end
 end
@@ -172,10 +174,10 @@ end
 function trigger(pressed)
     if not pressed then return end
     if sceneItem then
-        obs.obs_sceneitem_set_rot(sceneItem, origin.rotation)
-        obs.obs_sceneitem_set_pos(sceneItem, origin.position)
+        obs.obs_sceneitem_set_rot(sceneItem, origin.rot)
+        obs.obs_sceneitem_set_pos(sceneItem, origin.pos)
         obs.obs_sceneitem_set_bounds_type(sceneItem, obs.OBS_BOUNDS_STRETCH)
-        obs.obs_sceneitem_set_bounds(sceneItem, origin.dimensions)
+        obs.obs_sceneitem_set_bounds(sceneItem, origin.bounds)
         effect.elapsed_time = 0
         active = true
     else
@@ -183,38 +185,40 @@ function trigger(pressed)
     end
 end
 
-function get_new_rotation(seconds)
-    local delta = rotation_at_second(seconds)
-    return obs.obs_sceneitem_get_rot(sceneItem) + delta
-end
-
-function rotation_at_second(seconds)
-    if effect.easing == 'linear' then
-        return ((destination.rotation - origin.rotation) / effect.duration) * seconds
-    elseif effect.easing == 'cut' then
-        return 0
+function get_new_scalar(scalar_name, seconds)
+    local function scalar_at_second(seconds)
+        if effect.easing == 'linear' then
+            return (
+                (destination[scalar_name] - origin[scalar_name]) /
+                    effect.duration) * seconds
+        elseif effect.easing == 'cut' then
+            return 0
+        end
     end
+
+    return obs['obs_sceneitem_get_' .. scalar_name](sceneItem) +
+                scalar_at_second(seconds)
 end
 
-function get_new_position(seconds)
-    local new_pos = obs.vec2()
-    obs.obs_sceneitem_get_pos(sceneItem, new_pos)
+function get_new_vector(vector_name, seconds)
+    local new_vector = obs.vec2()
+    local function vector_at_second(seconds)
+        local delta = obs.vec2()
+        if effect.easing == 'linear' then
+            obs.vec2_set(
+                delta,
+                ((destination[vector_name].x / effect.duration) * seconds),
+                ((destination[vector_name].y / effect.duration) * seconds))
+        elseif effect.easing == 'cut' then
+            obs.vec2_set(delta, 0, 0)
+        end
+        return delta
+    end
+
+    obs['obs_sceneitem_get_' .. vector_name](sceneItem, new_vector)
     obs.vec2_add(
-        new_pos,
-        new_pos,
-        position_at_second(seconds))
-    return new_pos
-end
-
-function position_at_second(seconds)
-    local delta = obs.vec2()
-    if effect.easing == 'linear' then
-        obs.vec2_set(
-            delta,
-            ((destination.position.x / effect.duration) * seconds),
-            ((destination.position.y / effect.duration) * seconds))
-    elseif effect.easing == 'cut' then
-        obs.vec2_set(delta, 0, 0)
-    end
-    return delta
+    new_vector,
+    new_vector,
+    vector_at_second(seconds))
+    return new_vector
 end
