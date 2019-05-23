@@ -30,6 +30,7 @@ local effect = { elapsed_time = 0 }
 local source_name = ''
 local sceneItem = nil
 local hotkey_id = obs.OBS_INVALID_HOTKEY_ID
+local delay
 
 --
 -- Utility functions based on @MacTartan's HotKeyRotate.lua
@@ -88,6 +89,9 @@ function script_properties()
 
     obs.obs_properties_add_float(
         props, 'duration', 'Duration (seconds):', 0, 100000, 1)
+
+    obs.obs_properties_add_float(
+        props, 'delay', 'Start delay (seconds):', 0, 100000, 1)
 
     local effects =
         obs.obs_properties_add_list(
@@ -208,6 +212,7 @@ function script_update(settings)
         obs.obs_data_get_int(settings, 'destination height'))
 
     effect.duration = obs.obs_data_get_double(settings, 'duration')
+    effect.delay = obs.obs_data_get_double(settings, 'delay')
     effect.easing = obs.obs_data_get_string(settings, 'easing')
 
     findSceneItem()
@@ -232,18 +237,21 @@ end
 
 function script_tick(seconds)
     if (active) then
-        effect.elapsed_time = effect.elapsed_time + seconds
-        obs.obs_sceneitem_set_rot(sceneItem, get_new_scalar('rot', seconds))
-        obs.obs_sceneitem_set_pos(sceneItem, get_new_vector('pos', seconds))
-        obs.obs_sceneitem_set_bounds(
+        delay = delay - seconds
+        if (delay <= 0) then
+            effect.elapsed_time = effect.elapsed_time + seconds
+            obs.obs_sceneitem_set_rot(sceneItem, get_new_scalar('rot', seconds))
+            obs.obs_sceneitem_set_pos(sceneItem, get_new_vector('pos', seconds))
+            obs.obs_sceneitem_set_bounds(
             sceneItem,
             get_new_vector('bounds', seconds))
-        if (effect.elapsed_time >= effect.duration) then
-            active = false
-            effect.elapsed_time = 0
-            obs.obs_sceneitem_set_rot(sceneItem, destination.rot)
-            obs.obs_sceneitem_set_pos(sceneItem, destination.pos)
-            obs.obs_sceneitem_set_bounds(sceneItem, destination.bounds)
+            if (effect.elapsed_time >= effect.duration) then
+                active = false
+                effect.elapsed_time = 0
+                obs.obs_sceneitem_set_rot(sceneItem, destination.rot)
+                obs.obs_sceneitem_set_pos(sceneItem, destination.pos)
+                obs.obs_sceneitem_set_bounds(sceneItem, destination.bounds)
+            end
         end
     end
 end
@@ -261,6 +269,7 @@ function trigger(pressed)
         obs.obs_sceneitem_set_bounds_type(sceneItem, obs.OBS_BOUNDS_STRETCH)
         obs.obs_sceneitem_set_bounds(sceneItem, origin.bounds)
         effect.elapsed_time = 0
+        delay = effect.delay
         active = true
     else
         obs.remove_current_callback()
