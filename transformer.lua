@@ -8,6 +8,8 @@
     bernat@romagosa.work
     info@munfilms.com
 
+    https://github.com/bromagosa/obs-transformer
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -26,11 +28,12 @@ local obs = obslua
 local active = false
 local origin = {}
 local destination = {}
-local effect = { elapsed_time = 0 }
+local effect = {
+    remaining_delay = 0,
+    elapsed_time = 0 }
 local source_name = ''
 local sceneItem = nil
 local hotkey_id = obs.OBS_INVALID_HOTKEY_ID
-local delay
 
 --
 -- Utility functions based on @MacTartan's HotKeyRotate.lua
@@ -176,12 +179,18 @@ function script_properties()
         end
     end
     obs.source_list_release(sources)
+
+    obs.obs_properties_add_button(props, 'button', 'Do it!', trigger)
     return props
 end
 
 function script_description()
-    return 'Transform a source\'s position and scale.\n\n' ..
-        'By Bernat Romagosa & Mun Films 2019'
+    return 'Transform dimensions, rotation and position of a source ' ..
+            '(or group) while applying an easing function to the ' ..
+            'transformation. \n\n' ..
+            'You can either assign a hotkey to trigger the transformation ' ..
+            'or click on the "Do it!" button.\n\n' ..
+            'By Bernat Romagosa & Mun Films 2019'
 end
 
 function script_update(settings)
@@ -218,9 +227,6 @@ function script_update(settings)
     findSceneItem()
 end
 
-function script_defaults(settings)
-end
-
 function script_save(settings)
     local hotkey_save_array = obs.obs_hotkey_save(hotkey_id)
     obs.obs_data_set_array(settings, 'trigger_hotkey', hotkey_save_array)
@@ -237,8 +243,8 @@ end
 
 function script_tick(seconds)
     if (active) then
-        delay = delay - seconds
-        if (delay <= 0) then
+        effect.remaining_delay = effect.remaining_delay - seconds
+        if (effect.remaining_delay <= 0) then
             effect.elapsed_time = effect.elapsed_time + seconds
             obs.obs_sceneitem_set_rot(sceneItem, get_new_scalar('rot', seconds))
             obs.obs_sceneitem_set_pos(sceneItem, get_new_vector('pos', seconds))
@@ -269,7 +275,7 @@ function trigger(pressed)
         obs.obs_sceneitem_set_bounds_type(sceneItem, obs.OBS_BOUNDS_STRETCH)
         obs.obs_sceneitem_set_bounds(sceneItem, origin.bounds)
         effect.elapsed_time = 0
-        delay = effect.delay
+        effect.remaining_delay = effect.delay
         active = true
     else
         obs.remove_current_callback()
