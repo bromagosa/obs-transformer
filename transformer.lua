@@ -7,7 +7,10 @@ local source_name = ''
 local sceneItem = nil
 local hotkey_id = obs.OBS_INVALID_HOTKEY_ID
 
+
+--
 -- Utility functions based on @MacTartan's HotKeyRotate.lua
+--
 
 local function currentSceneName()
     local src = obs.obs_frontend_get_current_scene()
@@ -28,10 +31,10 @@ local function findSceneItem()
     end
 end
 
+
+--
 -- OBS Script Overrides
-----------------------------------------------------------
--- A function named script_properties defines the properties that the user
--- can change for the entire script module itself
+--
 function script_properties()
     local props = obs.obs_properties_create()
     obs.obs_properties_add_int(
@@ -92,14 +95,11 @@ function script_properties()
     return props
 end
 
--- A function named script_description returns the description shown to
--- the user
 function script_description()
     return 'Transform a source\'s position and scale.\n\n' ..
         'By Bernat Romagosa & Mun Films 2019'
 end
 
--- A function named script_update will be called when settings are changed
 function script_update(settings)
     source_name = obs.obs_data_get_string(settings, 'source')
 
@@ -130,37 +130,19 @@ function script_update(settings)
     effect.duration = obs.obs_data_get_double(settings, 'duration')
     effect.easing = obs.obs_data_get_string(settings, 'easing')
 
-    effect.rotation_per_sec =
-        ((destination.rotation - origin.rotation) / effect.duration)
-
     findSceneItem()
 end
 
--- A function named script_defaults will be called to set the default settings
 function script_defaults(settings)
 end
 
--- A function named script_save will be called when the script is saved
---
--- NOTE: This function is usually used for saving extra data (such as in this
--- case, a hotkey's save data).  Settings set via the properties are saved
--- automatically.
 function script_save(settings)
     local hotkey_save_array = obs.obs_hotkey_save(hotkey_id)
     obs.obs_data_set_array(settings, 'trigger_hotkey', hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
 end
 
--- a function named script_load will be called on startup
 function script_load(settings)
-    -- Connect hotkey and activation/deactivation signal callbacks
-    --
-    -- NOTE: These particular script callbacks do not necessarily have to
-    -- be disconnected, as callbacks will automatically destroy themselves
-    -- if the script is unloaded.  So there's no real need to manually
-    -- disconnect callbacks that are intended to last until the script is
-    -- unloaded.
-    --
     hotkey_id = obs.obs_hotkey_register_frontend(
         'trigger_resizer', 'Trigger Resizer', trigger)
     local hotkey_save_array = obs.obs_data_get_array(settings, 'trigger_hotkey')
@@ -181,8 +163,11 @@ function script_tick(seconds)
     end
 end
 
+
 --
--- Resizer Code
+-- Transformer Code
+--
+
 function trigger(pressed)
     if not pressed then return end
     if sceneItem then
@@ -198,18 +183,29 @@ function trigger(pressed)
 end
 
 function get_new_rotation(seconds)
-    local delta
-    if effect.easing == 'linear' then
-        delta = (effect.rotation_per_sec * seconds)
-    elseif effect.easing == 'cut' then
-        delta = 0
-    end
+    local delta = rotation_at_second(seconds)
     return obs.obs_sceneitem_get_rot(sceneItem) + delta
 end
 
+function rotation_at_second(seconds)
+    if effect.easing == 'linear' then
+        return ((destination.rotation - origin.rotation) / effect.duration) * seconds
+    elseif effect.easing == 'cut' then
+        return 0
+    end
+end
+
 function get_new_position(seconds)
-    local delta = obs.vec2()
     local new_pos = obs.vec2()
+    obs.vec2_add(
+        new_pos,
+        obs.obs_sceneitem_get_pos(sceneItem),
+        position_at_second(seconds))
+    return new_pos
+end
+
+function position_at_second(seconds)
+    local delta = obs.vec2()
     if effect.easing == 'linear' then
         obs.vec2_set(
             delta,
@@ -218,5 +214,5 @@ function get_new_position(seconds)
     elseif effect.easing == 'cut' then
         obs.vec2_set(delta, 0, 0)
     end
-    obs.vec2_add(new_pos, obs.obs_sceneitem_get_pos(sceneItem), delta)
+    return delta
 end
