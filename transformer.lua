@@ -269,6 +269,7 @@ end
 
 function trigger(pressed)
     if not pressed then return end
+    if not sceneItem then findSceneItem() end
     if sceneItem then
         obs.obs_sceneitem_set_rot(sceneItem, origin.rot)
         obs.obs_sceneitem_set_pos(sceneItem, origin.pos)
@@ -277,8 +278,6 @@ function trigger(pressed)
         effect.elapsed_time = 0
         effect.remaining_delay = effect.delay
         active = true
-    else
-        obs.remove_current_callback()
     end
 end
 
