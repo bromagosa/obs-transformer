@@ -1,6 +1,6 @@
 --[[
     OBS-TRANSFORMER
-    v1.0
+    v1.1
     A script for Open Broadcaster Software that lets you transform dimensions,
     rotation and position of a source (or group) while applying an easing
     function to the transformation.
