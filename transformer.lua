@@ -1,5 +1,6 @@
 --[[
     OBS-TRANSFORMER
+    v1.0
     A script for Open Broadcaster Software that lets you transform dimensions,
     rotation and position of a source (or group) while applying an easing
     function to the transformation.
@@ -283,6 +284,7 @@ end
 
 function trigger(pressed)
     if not pressed then return end
+    if not sceneItem then findSceneItem() end
     if sceneItem then
         obs.obs_sceneitem_set_rot(sceneItem, origin.rot)
         obs.obs_sceneitem_set_pos(sceneItem, origin.pos)
@@ -291,8 +293,6 @@ function trigger(pressed)
         effect.elapsed_time = 0
         effect.remaining_delay = effect.delay
         active = true
-    else
-        obs.remove_current_callback()
     end
 end
 
