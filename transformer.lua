@@ -26,6 +26,7 @@
 
 local obs = obslua
 local active = false
+local triggerOnRecord = false
 local origin = {}
 local destination = {}
 local effect = {
@@ -180,6 +181,8 @@ function script_properties()
     end
     obs.source_list_release(sources)
 
+    obs.obs_properties_add_bool(props, 'trigger-on-record', 'Trigger on record')
+
     obs.obs_properties_add_button(props, 'button', 'Do it!', trigger)
     return props
 end
@@ -224,6 +227,8 @@ function script_update(settings)
     effect.delay = obs.obs_data_get_double(settings, 'delay')
     effect.easing = obs.obs_data_get_string(settings, 'easing')
 
+    triggerOnRecord = obs.obs_data_get_bool(settings, 'trigger-on-record')
+
     findSceneItem()
 end
 
@@ -239,6 +244,15 @@ function script_load(settings)
     local hotkey_save_array = obs.obs_data_get_array(settings, 'trigger_hotkey')
     obs.obs_hotkey_load(hotkey_id, hotkey_save_array)
     obs.obs_data_array_release(hotkey_save_array)
+    obs.obs_frontend_add_event_callback(on_event)
+end
+
+function on_event(event)
+    if event == obs.OBS_FRONTEND_EVENT_RECORDING_STARTED then
+        if triggerOnRecord then
+            trigger(true)
+        end
+    end
 end
 
 function script_tick(seconds)
